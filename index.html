@@ -1,22 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YaVM</title>
 
 <style>
-
 body{
 margin:0;
 background:black;
 color:white;
-font-family:Tahoma;
+font-family:Tahoma,Arial;
 overflow:hidden;
 }
 
-/* boot screen */
+/* BOOT */
 
-#boot{
+#bootScreen{
 position:fixed;
 inset:0;
 display:flex;
@@ -24,77 +24,79 @@ flex-direction:column;
 align-items:center;
 justify-content:center;
 background:black;
+z-index:1000;
 }
 
-#logo{
+#bootLogo{
 width:420px;
-margin-bottom:40px;
+margin-bottom:30px;
 }
 
-#loader{
-width:240px;
+#loadingBox{
+width:250px;
 height:18px;
-border:2px solid #777;
+border:2px solid #888;
 overflow:hidden;
 }
 
 #bar{
 height:100%;
-width:35%;
-background:linear-gradient(#9bbcff,#2f56ff);
-animation:load 1.2s linear infinite;
+width:40%;
+background:linear-gradient(#8fb2ff,#2147d9);
+animation:move 1.2s linear infinite;
 }
 
-@keyframes load{
-0%{transform:translateX(-140%)}
+@keyframes move{
+0%{transform:translateX(-120%)}
 100%{transform:translateX(240%)}
 }
 
-#skip{
+#skipBootBtn{
 position:absolute;
 top:20px;
 right:20px;
-padding:8px 14px;
-background:#111;
-border:1px solid #555;
-cursor:pointer;
-}
-
-/* bios */
-
-#bios{
-display:none;
-position:fixed;
-inset:0;
-background:#070707;
-padding:40px;
-}
-
-.step{
-display:none;
-}
-
-.step.active{
-display:block;
-}
-
-button{
 background:#111;
 border:1px solid #555;
 color:white;
-padding:10px 16px;
+padding:10px;
 cursor:pointer;
-margin-top:10px;
 }
 
-.choice{
+/* POST */
+
+#postScreen{
+display:none;
+position:fixed;
+inset:0;
+background:black;
+color:#ddd;
+font-family:"Courier New";
+padding:30px;
+}
+
+/* BIOS */
+
+#biosScreen{
+display:none;
+position:fixed;
+inset:0;
+background:#0a0a0a;
+padding:40px;
+}
+
+.choice-btn{
 display:block;
 margin:10px 0;
+padding:12px;
+background:#111;
+border:1px solid #555;
+color:white;
+cursor:pointer;
 }
 
-/* vm */
+/* VM */
 
-#vm{
+#vmScreen{
 display:none;
 position:fixed;
 inset:0;
@@ -106,130 +108,259 @@ width:100%;
 height:100%;
 }
 
-#vmControls{
-display:none;
-position:fixed;
-top:10px;
-right:10px;
-z-index:999;
-}
-
-#vmControls button{
-margin-left:6px;
-}
-
 </style>
 </head>
 
 <body>
 
-<!-- boot -->
+<div id="bootScreen">
 
-<div id="boot">
+<button id="skipBootBtn" onclick="skipBootAnimation()">Skip Animation</button>
 
-<button id="skip">Skip Animation</button>
+<img id="bootLogo" src="xpboot.png">
 
-<img id="logo" src="xpboot.png">
-
-<div id="loader">
+<div id="loadingBox">
 <div id="bar"></div>
 </div>
 
+<div style="position:absolute;bottom:20px;left:20px">
+Copyright © YaqubPapp™
 </div>
 
-<!-- bios -->
-
-<div id="bios">
-
-<div class="step active" id="ram">
-
-<h2>Select RAM</h2>
-
-<button class="choice" onclick="setRam(128)">128 MB</button>
-<button class="choice" onclick="setRam(256)">256 MB</button>
-<button class="choice" onclick="setRam(512)">512 MB</button>
-<button class="choice" onclick="setRam(1024)">1024 MB</button>
-
-</div>
-
-<div class="step" id="os">
-
-<h2>Select OS</h2>
-
-<button class="choice" onclick="bootWin98()">Windows 98</button>
-
+<div style="position:absolute;bottom:20px;right:20px">
+YaqubPapp™
 </div>
 
 </div>
 
-<!-- vm -->
 
-<div id="vmControls">
+<div id="postScreen">
+<pre id="postText"></pre>
+</div>
 
-<button onclick="back()">Back</button>
-<button onclick="save()">Save</button>
-<button onclick="load()">Load</button>
+
+<div id="biosScreen">
+
+<h2>YaVM BIOS Setup Utility</h2>
+
+<button class="choice-btn" onclick="bootVM()">Boot Windows 98</button>
 
 </div>
 
-<div id="vm">
 
+<div id="vmScreen">
 <div id="screen_container"></div>
-
 </div>
 
-<script src="https://copy.sh/v86/build/libv86.js"></script>
+
+<script src="https://copy.sh/v86/build/v86.js"></script>
 
 <script>
 
-let ram=256
-let emulator=null
+let emulator
+let detectedSpecs=null
 
-/* boot */
+/* DETECT HARDWARE */
 
-setTimeout(()=>{
-startBIOS()
-},5000)
+function detectSpecs(){
 
-document.getElementById("skip").onclick=startBIOS
+const cores=navigator.hardwareConcurrency || "Unknown"
+const ram=navigator.deviceMemory ? navigator.deviceMemory+" GB detected" : "Unavailable"
+const platform=navigator.platform || "Unknown"
 
-function startBIOS(){
+let gpu="Unavailable"
 
-document.getElementById("boot").style.display="none"
-document.getElementById("bios").style.display="block"
+try{
+
+const canvas=document.createElement("canvas")
+const gl=canvas.getContext("webgl")
+
+if(gl){
+
+const ext=gl.getExtension("WEBGL_debug_renderer_info")
+
+if(ext){
+gpu=gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+}
 
 }
 
-/* bios */
+}catch(e){}
 
-function setRam(v){
-
-ram=v
-
-document.getElementById("ram").classList.remove("active")
-document.getElementById("os").classList.add("active")
+detectedSpecs={
+cpu:typeof cores==="number"?cores+" logical cores detected":"Unknown",
+ram:ram,
+gpu:gpu,
+platform:platform,
+recommendedMB:256
+}
 
 }
 
-/* vm */
+/* BIOS TEXT */
 
-function bootWin98(){
+function appendPostLine(line=""){
+const text=document.getElementById("postText")
+text.textContent+=line+"\n"
+}
 
-document.getElementById("bios").style.display="none"
-document.getElementById("vm").style.display="block"
-document.getElementById("vmControls").style.display="block"
+function clearPost(){
+document.getElementById("postText").textContent=""
+}
 
-startVM()
+/* POST START */
+
+function startPOST(){
+
+document.getElementById("postScreen").style.display="block"
+
+clearPost()
+
+const introLines=[
+
+"YaVM UNDI, PXE-2.1 (build 083)",
+"Copyright YaVM by Yaqub Papp™ 1998-2026",
+"",
+"Checking Specs...",
+""
+
+]
+
+let i=0
+
+function typeIntro(){
+
+if(i<introLines.length){
+
+appendPostLine(introLines[i])
+
+i++
+
+setTimeout(typeIntro,120)
+
+}else{
+
+setTimeout(showSpecsPOST,500)
 
 }
 
-function startVM(){
+}
+
+typeIntro()
+
+}
+
+/* SHOW SPECS */
+
+function showSpecsPOST(){
+
+const lines=[
+
+"Found!",
+"",
+"CPU: "+detectedSpecs.cpu,
+"System Memory: "+detectedSpecs.ram,
+"GPU: "+detectedSpecs.gpu,
+"Platform: "+detectedSpecs.platform,
+"Recommended YaVM RAM: "+detectedSpecs.recommendedMB+" MB",
+"",
+"Reboot and Select proper Boot device",
+"or Enter YaVM BIOS Setup"
+
+]
+
+let j=0
+
+function typeSpecs(){
+
+if(j<lines.length){
+
+appendPostLine(lines[j])
+
+j++
+
+setTimeout(typeSpecs,120)
+
+}else{
+
+setTimeout(enteringBiosAnimation,600)
+
+}
+
+}
+
+typeSpecs()
+
+}
+
+/* ENTER BIOS */
+
+function enteringBiosAnimation(){
+
+const states=["Entering BIOS.","Entering BIOS..","Entering BIOS..."]
+
+let i=0
+
+function next(){
+
+if(i<states.length){
+
+appendPostLine("")
+appendPostLine(states[i])
+
+i++
+
+setTimeout(next,400)
+
+}else{
+
+setTimeout(showBIOS,500)
+
+}
+
+}
+
+next()
+
+}
+
+function showBIOS(){
+
+document.getElementById("postScreen").style.display="none"
+
+document.getElementById("biosScreen").style.display="block"
+
+}
+
+/* SKIP */
+
+function skipBootAnimation(){
+
+document.getElementById("bootScreen").style.display="none"
+
+startPOST()
+
+}
+
+/* VM */
+
+function bootVM(){
+
+document.getElementById("biosScreen").style.display="none"
+
+document.getElementById("vmScreen").style.display="block"
+
+startEmulator()
+
+}
+
+function startEmulator(){
 
 emulator=new V86Starter({
 
 wasm_path:"https://copy.sh/v86/build/v86.wasm",
 
-memory_size:ram*1024*1024,
+memory_size:256*1024*1024,
 
 vga_memory_size:8*1024*1024,
 
@@ -239,9 +370,7 @@ bios:{url:"https://copy.sh/v86/bios/seabios.bin"},
 
 vga_bios:{url:"https://copy.sh/v86/bios/vgabios.bin"},
 
-hda:{
-url:"https://copy.sh/v86/images/windows98.img"
-},
+cdrom:{url:"https://archive.org/download/windows-98-se-isofile/Windows%2098%20Second%20Edition.iso"},
 
 autostart:true
 
@@ -249,41 +378,17 @@ autostart:true
 
 }
 
-function back(){
+/* START */
 
-if(emulator){
-try{emulator.stop()}catch(e){}
-}
+detectSpecs()
 
-document.getElementById("vm").style.display="none"
-document.getElementById("vmControls").style.display="none"
-document.getElementById("bios").style.display="block"
+setTimeout(()=>{
 
-}
+document.getElementById("bootScreen").style.display="none"
 
-/* save load */
+startPOST()
 
-function save(){
-
-localStorage.setItem("yavm_ram",ram)
-
-alert("Saved")
-
-}
-
-function load(){
-
-let r=localStorage.getItem("yavm_ram")
-
-if(r){
-
-ram=parseInt(r)
-
-alert("Loaded RAM "+ram)
-
-}
-
-}
+},5000)
 
 </script>
 
