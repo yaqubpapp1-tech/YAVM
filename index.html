@@ -2,236 +2,49 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>YaVM</title>
-
+<title>YaVM Test</title>
 <style>
 body{
 margin:0;
 background:black;
 color:white;
 font-family:Tahoma;
-overflow:hidden;
-}
-
-/* boot */
-
-#bootScreen{
-position:fixed;
-inset:0;
 display:flex;
 flex-direction:column;
 align-items:center;
 justify-content:center;
-background:black;
+height:100vh;
 }
-
-#bootLogo{
-width:400px;
-margin-bottom:40px;
-}
-
-#loadingBar{
-width:240px;
-height:16px;
-border:2px solid #888;
-overflow:hidden;
-}
-
-#loadingInner{
-height:100%;
-width:40%;
-background:linear-gradient(#7aa5ff,#2447ff);
-animation:loadmove 1s linear infinite;
-}
-
-@keyframes loadmove{
-0%{transform:translateX(-140%)}
-100%{transform:translateX(240%)}
-}
-
-#skip{
-position:absolute;
-top:20px;
-right:20px;
-padding:8px 14px;
-background:#111;
-border:1px solid #555;
-cursor:pointer;
-}
-
-/* bios */
-
-#bios{
-display:none;
-position:fixed;
-inset:0;
-background:#050505;
-padding:30px;
-}
-
-.step{display:none}
-.step.active{display:block}
-
-button{
-background:#111;
-border:1px solid #555;
-color:white;
-padding:10px 14px;
-cursor:pointer;
-}
-
-.choice{
-display:block;
-margin:10px 0;
-}
-
-/* vm */
-
-#vm{
-display:none;
-position:fixed;
-inset:0;
-background:black;
-}
-
 #screen_container{
 width:100%;
-height:100%;
+height:90vh;
+background:black;
 }
-
-#vmControls{
-display:none;
-position:fixed;
-top:10px;
-right:10px;
-z-index:999;
+button{
+padding:12px 20px;
+margin-bottom:20px;
+font-size:16px;
 }
-
-#vmControls button{
-margin-left:6px;
-}
-
 </style>
 </head>
 
 <body>
 
-<!-- boot -->
+<button onclick="startVM()">Start Windows 98</button>
 
-<div id="bootScreen">
-<button id="skip">Skip Animation</button>
-
-<img id="bootLogo" src="xpboot.png">
-
-<div id="loadingBar">
-<div id="loadingInner"></div>
-</div>
-</div>
-
-<!-- bios -->
-
-<div id="bios">
-
-<div class="step active" id="ramStep">
-
-<h2>Select RAM</h2>
-
-<button class="choice" onclick="setRam(128)">128 MB</button>
-<button class="choice" onclick="setRam(256)">256 MB</button>
-<button class="choice" onclick="setRam(512)">512 MB</button>
-<button class="choice" onclick="setRam(1024)">1024 MB</button>
-
-</div>
-
-<div class="step" id="osStep">
-
-<h2>Select OS</h2>
-
-<button class="choice" onclick="setOS('windows')">Windows</button>
-<button class="choice" onclick="setOS('linux')">Linux</button>
-
-</div>
-
-<div class="step" id="winStep">
-
-<h2>Select Windows Version</h2>
-
-<button class="choice" onclick="bootWindows()">Windows 98</button>
-
-</div>
-
-</div>
-
-<!-- vm -->
-
-<div id="vmControls">
-<button onclick="backToBIOS()">Back</button>
-<button onclick="saveVM()">Save</button>
-<button onclick="loadVM()">Load</button>
-</div>
-
-<div id="vm">
 <div id="screen_container"></div>
-</div>
 
 <script src="https://copy.sh/v86/build/libv86.js"></script>
 
 <script>
 
-let selectedRAM=256
-let selectedOS=null
-let emulator=null
+function startVM(){
 
-const WINDOWS_98_ISO_URL="https://ia801201.us.archive.org/15/items/windows-98-se-isofile/Windows%2098%20Second%20Edition.iso"
-
-/* boot */
-
-setTimeout(()=>{
-document.getElementById("bootScreen").style.display="none"
-document.getElementById("bios").style.display="block"
-},5000)
-
-document.getElementById("skip").onclick=()=>{
-document.getElementById("bootScreen").style.display="none"
-document.getElementById("bios").style.display="block"
-}
-
-/* bios logic */
-
-function setRam(v){
-selectedRAM=v
-next("osStep")
-}
-
-function setOS(v){
-selectedOS=v
-if(v==="windows")next("winStep")
-}
-
-function next(id){
-document.querySelectorAll(".step").forEach(s=>s.classList.remove("active"))
-document.getElementById(id).classList.add("active")
-}
-
-/* vm */
-
-function bootWindows(){
-
-document.getElementById("bios").style.display="none"
-document.getElementById("vm").style.display="block"
-document.getElementById("vmControls").style.display="block"
-
-startEmulator()
-
-}
-
-function startEmulator(){
-
-const config={
+new V86Starter({
 
 wasm_path:"https://copy.sh/v86/build/v86.wasm",
 
-memory_size:selectedRAM*1024*1024,
+memory_size:256*1024*1024,
 
 vga_memory_size:8*1024*1024,
 
@@ -241,41 +54,14 @@ bios:{url:"https://copy.sh/v86/bios/seabios.bin"},
 
 vga_bios:{url:"https://copy.sh/v86/bios/vgabios.bin"},
 
-cdrom:{url:WINDOWS_98_ISO_URL},
+cdrom:{
+url:"https://ia801201.us.archive.org/15/items/windows-98-se-isofile/Windows%2098%20Second%20Edition.iso"
+},
 
 autostart:true
 
-}
+})
 
-emulator=new V86Starter(config)
-
-}
-
-function backToBIOS(){
-
-if(emulator){
-try{emulator.stop()}catch(e){}
-}
-
-document.getElementById("vm").style.display="none"
-document.getElementById("vmControls").style.display="none"
-document.getElementById("bios").style.display="block"
-
-}
-
-/* save load */
-
-function saveVM(){
-localStorage.setItem("yavm_ram",selectedRAM)
-alert("Saved")
-}
-
-function loadVM(){
-let r=localStorage.getItem("yavm_ram")
-if(r){
-selectedRAM=parseInt(r)
-alert("Loaded RAM "+selectedRAM)
-}
 }
 
 </script>
