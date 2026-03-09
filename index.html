@@ -2,56 +2,289 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Windows 98 Test</title>
+<title>YaVM</title>
+
 <style>
-body {
-  margin:0;
-  background:black;
-  color:white;
-  font-family:Arial;
-  text-align:center;
+
+body{
+margin:0;
+background:black;
+color:white;
+font-family:Tahoma;
+overflow:hidden;
 }
-#screen_container {
-  width:100%;
-  height:90vh;
-  background:black;
+
+/* boot screen */
+
+#boot{
+position:fixed;
+inset:0;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+background:black;
 }
-button {
-  margin:20px;
-  padding:12px 20px;
-  font-size:16px;
+
+#logo{
+width:420px;
+margin-bottom:40px;
 }
+
+#loader{
+width:240px;
+height:18px;
+border:2px solid #777;
+overflow:hidden;
+}
+
+#bar{
+height:100%;
+width:35%;
+background:linear-gradient(#9bbcff,#2f56ff);
+animation:load 1.2s linear infinite;
+}
+
+@keyframes load{
+0%{transform:translateX(-140%)}
+100%{transform:translateX(240%)}
+}
+
+#skip{
+position:absolute;
+top:20px;
+right:20px;
+padding:8px 14px;
+background:#111;
+border:1px solid #555;
+cursor:pointer;
+}
+
+/* bios */
+
+#bios{
+display:none;
+position:fixed;
+inset:0;
+background:#070707;
+padding:40px;
+}
+
+.step{
+display:none;
+}
+
+.step.active{
+display:block;
+}
+
+button{
+background:#111;
+border:1px solid #555;
+color:white;
+padding:10px 16px;
+cursor:pointer;
+margin-top:10px;
+}
+
+.choice{
+display:block;
+margin:10px 0;
+}
+
+/* vm */
+
+#vm{
+display:none;
+position:fixed;
+inset:0;
+background:black;
+}
+
+#screen_container{
+width:100%;
+height:100%;
+}
+
+#vmControls{
+display:none;
+position:fixed;
+top:10px;
+right:10px;
+z-index:999;
+}
+
+#vmControls button{
+margin-left:6px;
+}
+
 </style>
 </head>
+
 <body>
 
-<button onclick="startVM()">Start Windows 98</button>
+<!-- boot -->
+
+<div id="boot">
+
+<button id="skip">Skip Animation</button>
+
+<img id="logo" src="xpboot.png">
+
+<div id="loader">
+<div id="bar"></div>
+</div>
+
+</div>
+
+<!-- bios -->
+
+<div id="bios">
+
+<div class="step active" id="ram">
+
+<h2>Select RAM</h2>
+
+<button class="choice" onclick="setRam(128)">128 MB</button>
+<button class="choice" onclick="setRam(256)">256 MB</button>
+<button class="choice" onclick="setRam(512)">512 MB</button>
+<button class="choice" onclick="setRam(1024)">1024 MB</button>
+
+</div>
+
+<div class="step" id="os">
+
+<h2>Select OS</h2>
+
+<button class="choice" onclick="bootWin98()">Windows 98</button>
+
+</div>
+
+</div>
+
+<!-- vm -->
+
+<div id="vmControls">
+
+<button onclick="back()">Back</button>
+<button onclick="save()">Save</button>
+<button onclick="load()">Load</button>
+
+</div>
+
+<div id="vm">
+
 <div id="screen_container"></div>
+
+</div>
 
 <script src="https://copy.sh/v86/build/libv86.js"></script>
 
 <script>
-function startVM() {
 
-  const emulator = new V86Starter({
-    wasm_path: "https://copy.sh/v86/build/v86.wasm",
+let ram=256
+let emulator=null
 
-    memory_size: 256 * 1024 * 1024,
-    vga_memory_size: 8 * 1024 * 1024,
+/* boot */
 
-    screen_container: document.getElementById("screen_container"),
+setTimeout(()=>{
+startBIOS()
+},5000)
 
-    bios: { url: "https://copy.sh/v86/bios/seabios.bin" },
-    vga_bios: { url: "https://copy.sh/v86/bios/vgabios.bin" },
+document.getElementById("skip").onclick=startBIOS
 
-    hda: {
-      url: "https://copy.sh/v86/images/windows98.img"
-    },
+function startBIOS(){
 
-    autostart: true
-  });
+document.getElementById("boot").style.display="none"
+document.getElementById("bios").style.display="block"
 
 }
+
+/* bios */
+
+function setRam(v){
+
+ram=v
+
+document.getElementById("ram").classList.remove("active")
+document.getElementById("os").classList.add("active")
+
+}
+
+/* vm */
+
+function bootWin98(){
+
+document.getElementById("bios").style.display="none"
+document.getElementById("vm").style.display="block"
+document.getElementById("vmControls").style.display="block"
+
+startVM()
+
+}
+
+function startVM(){
+
+emulator=new V86Starter({
+
+wasm_path:"https://copy.sh/v86/build/v86.wasm",
+
+memory_size:ram*1024*1024,
+
+vga_memory_size:8*1024*1024,
+
+screen_container:document.getElementById("screen_container"),
+
+bios:{url:"https://copy.sh/v86/bios/seabios.bin"},
+
+vga_bios:{url:"https://copy.sh/v86/bios/vgabios.bin"},
+
+hda:{
+url:"https://copy.sh/v86/images/windows98.img"
+},
+
+autostart:true
+
+})
+
+}
+
+function back(){
+
+if(emulator){
+try{emulator.stop()}catch(e){}
+}
+
+document.getElementById("vm").style.display="none"
+document.getElementById("vmControls").style.display="none"
+document.getElementById("bios").style.display="block"
+
+}
+
+/* save load */
+
+function save(){
+
+localStorage.setItem("yavm_ram",ram)
+
+alert("Saved")
+
+}
+
+function load(){
+
+let r=localStorage.getItem("yavm_ram")
+
+if(r){
+
+ram=parseInt(r)
+
+alert("Loaded RAM "+ram)
+
+}
+
+}
+
 </script>
 
 </body>
